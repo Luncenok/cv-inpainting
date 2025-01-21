@@ -5,17 +5,18 @@ import torch
 import torch.nn as nn
 import torchvision.models as models
 
-class GANLoss:
+class GANLoss(nn.Module):
     def __init__(self, gan_mode='vanilla', target_real_label=1.0, target_fake_label=0.0):
-        self.register_buffer('real_label', torch.tensor(target_real_label))
-        self.register_buffer('fake_label', torch.tensor(target_fake_label))
+        super().__init__()
+        self.real_label = torch.tensor(target_real_label)
+        self.fake_label = torch.tensor(target_fake_label)
         self.gan_mode = gan_mode
         if gan_mode == 'vanilla':
             self.loss = nn.BCEWithLogitsLoss()
         elif gan_mode == 'lsgan':
             self.loss = nn.MSELoss()
     
-    def __call__(self, prediction, target_is_real):
+    def forward(self, prediction, target_is_real):
         target_tensor = self.real_label if target_is_real else self.fake_label
         target_tensor = target_tensor.expand_as(prediction)
         return self.loss(prediction, target_tensor)
