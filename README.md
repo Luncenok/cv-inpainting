@@ -15,6 +15,12 @@ You should create a system that will solve a computer vision problem of your cho
 
 The final grade depends on the number of points scored for each project element.
 
+**Selected:**
+Problem: Image Inpainting
+Dataset: CelebA with custom masks
+Brief Description:
+We aim to create a system that restores missing regions in images using neural networks. The main model will feature a GAN-based architecture with contextual loss and attention mechanisms for high-quality results. We will use the CelebA dataset, augmenting it with custom masks to meet the requirements. Our final deliverables will include a detailed report, a trained model, and a streamlit dashboard for real-time inpainting.
+
 ## Problem:
 
 **Requirements**
