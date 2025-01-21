@@ -1,3 +1,127 @@
+# Image Inpainting with GANs
+
+This project implements an image inpainting system using a GAN-based architecture with attention mechanisms. The system is capable of restoring missing or damaged regions in images, particularly focusing on facial images from the CelebA dataset.
+
+## Features
+
+- GAN-based architecture with attention mechanisms
+- Custom mask generation (rectangular and elliptical)
+- Interactive Streamlit web interface
+- MLflow experiment tracking
+- Docker support
+- Comprehensive evaluation metrics (PSNR, SSIM, FID)
+
+## Project Structure
+
+```
+.
+├── data/               # Dataset directory
+├── models/            # Model architectures
+│   ├── blocks.py     # Basic building blocks
+│   ├── generator.py  # Generator architecture
+│   └── discriminator.py # Discriminator architecture
+├── utils/            # Utility functions
+│   └── data_loader.py # Data loading and preprocessing
+├── training/         # Training scripts
+│   ├── train.py     # Main training script
+│   └── loss_functions.py # Loss function implementations
+├── evaluation/       # Evaluation scripts
+│   ├── evaluate.py  # Main evaluation script
+│   └── metrics.py   # Metric implementations
+├── streamlit_app/   # Web interface
+│   └── app.py      # Streamlit application
+├── docker/         # Docker configuration
+│   ├── Dockerfile
+│   └── docker-compose.yml
+└── requirements.txt # Project dependencies
+```
+
+## Installation
+
+1. Clone the repository:
+```bash
+git clone https://github.com/yourusername/cv-inpainting.git
+cd cv-inpainting
+```
+
+2. Create a virtual environment and install dependencies:
+```bash
+python -m venv venv
+source venv/bin/activate  # On Windows: venv\Scripts\activate
+pip install -r requirements.txt
+```
+
+3. Download the CelebA dataset (instructions in the Dataset section below).
+
+## Usage
+
+### Training
+
+To train the model:
+
+```bash
+python training/train.py
+```
+
+The training script supports various configuration options. Check the script for details.
+
+### Evaluation
+
+To evaluate a trained model:
+
+```bash
+python evaluation/evaluate.py
+```
+
+### Web Interface
+
+To run the Streamlit interface:
+
+```bash
+streamlit run streamlit_app/app.py
+```
+
+### Docker
+
+To run the application using Docker:
+
+```bash
+docker-compose -f docker/docker-compose.yml up --build
+```
+
+## Dataset
+
+The project uses the CelebA dataset with custom-generated masks. To download the dataset:
+
+1. Visit [CelebA official website](http://mmlab.ie.cuhk.edu.hk/projects/CelebA.html)
+2. Download the Aligned & Cropped Images
+3. Place the images in the `data/celeba` directory
+
+## Model Architecture
+
+The inpainting model consists of:
+- Generator: U-Net architecture with attention mechanisms
+- Discriminator: PatchGAN discriminator
+- Custom attention blocks for better context understanding
+
+## Evaluation Metrics
+
+- PSNR (Peak Signal-to-Noise Ratio)
+- SSIM (Structural Similarity Index)
+- FID (Fréchet Inception Distance)
+
+## Contributing
+
+Contributions are welcome! Please feel free to submit a Pull Request.
+
+## License
+
+This project is licensed under the MIT License - see the LICENSE file for details.
+
+---
+
+# Project Requirements
+
 # Project 3
 
 **Description**

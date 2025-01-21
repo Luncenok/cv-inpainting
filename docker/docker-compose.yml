@@ -1,0 +1,21 @@
+version: '3'
+
+services:
+  inpainting-app:
+    build:
+      context: ..
+      dockerfile: docker/Dockerfile
+    ports:
+      - "8501:8501"
+    volumes:
+      - ../data:/app/data
+      - ../checkpoints:/app/checkpoints
+    environment:
+      - PYTHONPATH=/app
+    deploy:
+      resources:
+        reservations:
+          devices:
+            - driver: nvidia
+              count: 1
+              capabilities: [gpu]
