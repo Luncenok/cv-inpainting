@@ -281,3 +281,65 @@ If you do the project alone, the total number of points needed for the grade is 
     *   Problem >= 1 point.
     *   Model >= 3 points.
     *   Sum of points >= 18 (pair) / 15 (alone).
+
+## Project Architecture
+
+```mermaid
+flowchart TD
+    %% Training Files
+    config["training/config.py"]
+    train["training/train.py"]
+    loss["training/loss_functions.py"]
+
+    %% Model Files
+    gen["models/generator.py"]
+    disc["models/discriminator.py"]
+    blocks["models/blocks.py"]
+
+    %% Data Files
+    download["data/download_celeba.py"]
+    dataloader["utils/data_loader.py"]
+
+    %% Evaluation Files
+    eval["evaluation/evaluate.py"]
+    metrics["evaluation/metrics.py"]
+
+    %% Web and Report Files
+    app["streamlit_app/app.py"]
+    report["report/report_generator.py"]
+
+    %% Dependencies
+    train --> config
+    train --> loss
+    train --> gen
+    train --> disc
+    train --> dataloader
+
+    gen --> blocks
+    disc --> blocks
+
+    dataloader --> download
+
+    eval --> metrics
+    eval --> gen
+    eval --> dataloader
+
+    app --> gen
+    app --> dataloader
+
+    report --> eval
+    report --> train
+
+    %% Styling
+    classDef training fill:#f9f,stroke:#333,stroke-width:2px
+    classDef models fill:#bbf,stroke:#333,stroke-width:2px
+    classDef data fill:#bfb,stroke:#333,stroke-width:2px
+    classDef eval fill:#ffb,stroke:#333,stroke-width:2px
+    classDef web fill:#fbb,stroke:#333,stroke-width:2px
+
+    class config,train,loss training
+    class gen,disc,blocks models
+    class download,dataloader data
+    class eval,metrics eval
+    class app,report web
+```

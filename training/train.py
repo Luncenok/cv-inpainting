@@ -12,13 +12,37 @@ from datetime import datetime
 from models.generator import Generator
 from models.discriminator import Discriminator
 from utils.data_loader import get_data_loaders
-from .loss_functions import get_loss_functions
-from .config import TrainingConfig
+from training.loss_functions import get_loss_functions
+from training.config import TrainingConfig
+
+def validate_tensor_shapes(name, tensor, expected_shape=None):
+    """Validate tensor shapes and memory layout."""
+    
+    if expected_shape and tensor.shape != expected_shape:
+        print(f"\n=== Validating {name} ===")
+        print(f"- Shape: {tensor.shape}")
+        print(f"- Stride: {tensor.stride()}")
+        print(f"- Expected shape: {expected_shape if expected_shape else 'not specified'}")
+        print(f"- Is contiguous: {tensor.is_contiguous()}")
+        print(f"- Device: {tensor.device}")
+        print(f"- Dtype: {tensor.dtype}")
+        raise ValueError(f"Invalid shape for {name}. Expected {expected_shape}, got {tensor.shape}")
+    if not tensor.is_contiguous():
+        print(f"Warning: {name} is not contiguous, making it contiguous...")
+        tensor = tensor.contiguous()
+    return tensor
 
 def train(config: TrainingConfig):
+    # Set up MLflow and tensorboard directories
+    os.makedirs('mlruns', exist_ok=True)
+    os.makedirs('runs', exist_ok=True)
+    
     # Set up MLflow
-    mlflow.set_tracking_uri(config.mlflow_tracking_uri)
-    mlflow.set_experiment(config.mlflow_experiment_name)
+    mlflow.set_tracking_uri('file:mlruns')
+    mlflow.set_experiment('image_inpainting')
+    
+    # Set up tensorboard
+    writer = SummaryWriter(os.path.join('runs', datetime.now().strftime('%Y%m%d-%H%M%S')))
     
     # Start MLflow run
     with mlflow.start_run(run_name=config.mlflow_run_name or f"run_{datetime.now().strftime('%Y%m%d_%H%M%S')}"):
@@ -58,9 +82,6 @@ def train(config: TrainingConfig):
             if isinstance(loss_fn, torch.nn.Module):
                 loss_fn.to(config.device)
         
-        # Set up tensorboard
-        writer = SummaryWriter(os.path.join(config.mlflow_tracking_uri, 'tensorboard'))
-        
         # Training loop
         for epoch in range(config.num_epochs):
             generator.train()
@@ -72,19 +93,41 @@ def train(config: TrainingConfig):
             num_batches = 0
             
             for batch in tqdm(train_loader, desc=f"Epoch {epoch+1}/{config.num_epochs}"):
-                real_images = batch['image'].to(config.device)
-                masked_images = batch['masked_image'].to(config.device)
-                masks = batch['mask'].to(config.device)
+                # Load and validate input tensors
+                real_images = validate_tensor_shapes("Real images", batch['image'].to(config.device))
+                masked_images = validate_tensor_shapes("Masked images", batch['masked_image'].to(config.device))
+                masks = validate_tensor_shapes("Masks", batch['mask'].to(config.device))
+                
+                batch_size = real_images.size(0)
+                expected_shape = (batch_size, 3, 256, 256)
+                mask_shape = (batch_size, 1, 256, 256)
+                
+                if real_images.shape != expected_shape:
+                    raise ValueError(f"Invalid real images shape. Expected {expected_shape}, got {real_images.shape}")
+                if masked_images.shape != expected_shape:
+                    raise ValueError(f"Invalid masked images shape. Expected {expected_shape}, got {masked_images.shape}")
+                if masks.shape != mask_shape:
+                    raise ValueError(f"Invalid masks shape. Expected {mask_shape}, got {masks.shape}")
                 
                 # Train discriminator
                 d_optimizer.zero_grad()
                 
+                # Generate and validate fake images
                 fake_images = generator(masked_images, masks)
+                fake_images = validate_tensor_shapes("Generated images", fake_images, expected_shape)
+                
+                # Get discriminator predictions
                 fake_pred = discriminator(fake_images.detach())
                 real_pred = discriminator(real_images)
                 
+                # Validate discriminator outputs
+                disc_output_shape = (batch_size, 1)
+                fake_pred = validate_tensor_shapes("Fake predictions", fake_pred, disc_output_shape)
+                real_pred = validate_tensor_shapes("Real predictions", real_pred, disc_output_shape)
+                
+                # Calculate discriminator loss
                 d_loss = (loss_functions['adversarial'](fake_pred, False) + 
-                         loss_functions['adversarial'](real_pred, True)) * 0.5
+                            loss_functions['adversarial'](real_pred, True)) * 0.5
                 
                 d_loss.backward()
                 d_optimizer.step()
@@ -92,7 +135,9 @@ def train(config: TrainingConfig):
                 # Train generator
                 g_optimizer.zero_grad()
                 
+                # Get new discriminator predictions for generator
                 fake_pred = discriminator(fake_images)
+                fake_pred = validate_tensor_shapes("Generator fake predictions", fake_pred, disc_output_shape)
                 
                 g_adv_loss = loss_functions['adversarial'](fake_pred, True)
                 g_l1_loss = loss_functions['l1'](fake_images, real_images) * config.lambda_l1

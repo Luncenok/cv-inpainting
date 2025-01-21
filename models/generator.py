@@ -35,8 +35,18 @@ class Generator(nn.Module):
         )
     
     def forward(self, x, mask):
+        """Forward pass.
+        
+        Args:
+            x (torch.Tensor): Input image tensor [batch_size, 3, height, width]
+            mask (torch.Tensor): Mask tensor [batch_size, 1, height, width]
+            
+        Returns:
+            torch.Tensor: Generated image [batch_size, 3, height, width]
+        """
         # Combine input image and mask
         x = torch.cat([x, mask], dim=1)
+        x = x.contiguous()
         
         # Encoder
         e1 = self.e1(x)
@@ -48,9 +58,21 @@ class Generator(nn.Module):
         b = self.bottleneck(e4)
         
         # Decoder with skip connections
-        d4 = self.d4(torch.cat([b, e4], dim=1))
-        d3 = self.d3(torch.cat([d4, e3], dim=1))
-        d2 = self.d2(torch.cat([d3, e2], dim=1))
-        d1 = self.d1(torch.cat([d2, e1], dim=1))
+        # Make sure all tensors are contiguous before concatenation
+        b = b.contiguous()
+        e4 = e4.contiguous()
+        d4 = self.d4(torch.cat([b, e4], dim=1).contiguous())
+        
+        e3 = e3.contiguous()
+        d4 = d4.contiguous()
+        d3 = self.d3(torch.cat([d4, e3], dim=1).contiguous())
+        
+        e2 = e2.contiguous()
+        d3 = d3.contiguous()
+        d2 = self.d2(torch.cat([d3, e2], dim=1).contiguous())
+        
+        e1 = e1.contiguous()
+        d2 = d2.contiguous()
+        d1 = self.d1(torch.cat([d2, e1], dim=1).contiguous())
         
         return self.out(d1)

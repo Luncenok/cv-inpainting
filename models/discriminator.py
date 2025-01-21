@@ -1,5 +1,5 @@
 """
-PatchGAN discriminator for the inpainting GAN.
+Discriminator model for the inpainting GAN.
 """
 import torch
 import torch.nn as nn
@@ -7,21 +7,42 @@ import torch.nn as nn
 class Discriminator(nn.Module):
     def __init__(self, in_channels=3):
         super().__init__()
-        
-        def discriminator_block(in_channels, out_channels, normalize=True):
-            layers = [nn.Conv2d(in_channels, out_channels, 4, stride=2, padding=1)]
-            if normalize:
-                layers.append(nn.BatchNorm2d(out_channels))
-            layers.append(nn.LeakyReLU(0.2, inplace=True))
-            return layers
-        
         self.model = nn.Sequential(
-            *discriminator_block(in_channels, 64, normalize=False),  # 128x128
-            *discriminator_block(64, 128),                          # 64x64
-            *discriminator_block(128, 256),                         # 32x32
-            *discriminator_block(256, 512),                         # 16x16
-            nn.Conv2d(512, 1, 4, padding=1)                        # 16x16 -> 1 channel
+            # Input: [batch_size, in_channels, 256, 256]
+            nn.Conv2d(in_channels, 64, kernel_size=4, stride=2, padding=1),  # [batch_size, 64, 128, 128]
+            nn.LeakyReLU(0.2, inplace=True),
+            
+            nn.Conv2d(64, 128, kernel_size=4, stride=2, padding=1),  # [batch_size, 128, 64, 64]
+            nn.BatchNorm2d(128),
+            nn.LeakyReLU(0.2, inplace=True),
+            
+            nn.Conv2d(128, 256, kernel_size=4, stride=2, padding=1),  # [batch_size, 256, 32, 32]
+            nn.BatchNorm2d(256),
+            nn.LeakyReLU(0.2, inplace=True),
+            
+            nn.Conv2d(256, 512, kernel_size=4, stride=2, padding=1),  # [batch_size, 512, 16, 16]
+            nn.BatchNorm2d(512),
+            nn.LeakyReLU(0.2, inplace=True),
+            
+            nn.Conv2d(512, 1, kernel_size=4, stride=2, padding=1),  # [batch_size, 1, 8, 8]
         )
     
     def forward(self, x):
-        return self.model(x)
+        """Forward pass.
+        
+        Args:
+            x (torch.Tensor): Input image tensor [batch_size, channels, height, width]
+            
+        Returns:
+            torch.Tensor: Discriminator output [batch_size, 1]
+        """
+        
+        # Get model output and ensure it's contiguous
+        out = self.model(x)  # [batch_size, 1, H', W']
+        out = out.contiguous()
+        
+        # Global average pooling instead of reshape
+        out = out.mean(dim=[2, 3], keepdim=True)  # [batch_size, 1, 1, 1]
+        out = out.reshape(out.size(0), 1)  # [batch_size, 1]
+        
+        return out.contiguous()  # Ensure final output is contiguous

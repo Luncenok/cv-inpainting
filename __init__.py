@@ -1,0 +1,3 @@
+"""
+cv-inpainting package
+"""
