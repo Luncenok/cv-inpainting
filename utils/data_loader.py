@@ -51,13 +51,15 @@ class InpaintingDataset(Dataset):
                  root_dir: str,
                  split: str = 'train',
                  transform: Optional[transforms.Compose] = None,
-                 mask_generator: Optional[MaskGenerator] = None):
+                 mask_generator: Optional[MaskGenerator] = None,
+                 debug: bool = False):
         """
         Args:
             root_dir: Path to CelebA dataset root
             split: One of ['train', 'val', 'test']
             transform: Optional transform to be applied on images
             mask_generator: Optional custom mask generator
+            debug: If True, limit dataset size
         """
         self.root_dir = Path(root_dir)
         self.split_dir = self.root_dir / split
@@ -74,9 +76,17 @@ class InpaintingDataset(Dataset):
         self.mask_generator = mask_generator or MaskGenerator(256, 256)
         
         # Load image paths
-        self.image_paths = list(self.split_dir.glob('*.jpg'))
-        if not self.image_paths:
+        all_image_paths = list(self.split_dir.glob('*.jpg'))
+        if not all_image_paths:
             raise ValueError(f"No images found in {self.split_dir}")
+            
+        # Limit dataset size in debug mode
+        if debug:
+            limit = 100 if split == 'val' else 100
+            self.image_paths = all_image_paths[:limit]
+            print(f"Debug mode: Using {len(self.image_paths)} images for {split}")
+        else:
+            self.image_paths = all_image_paths
     
     def __len__(self) -> int:
         return len(self.image_paths)
@@ -107,10 +117,18 @@ class InpaintingDataset(Dataset):
 
 def get_data_loaders(root_dir: str,
                     batch_size: int = 8,
-                    num_workers: int = 4) -> Tuple[DataLoader, DataLoader]:
-    """Create train and validation data loaders."""
+                    num_workers: int = 4,
+                    debug: bool = False) -> Tuple[DataLoader, DataLoader]:
+    """Create train and validation data loaders.
+    
+    Args:
+        root_dir: Path to dataset root directory
+        batch_size: Batch size for training
+        num_workers: Number of workers for data loading
+        debug: If True, limit dataset size to 1000 training and 100 validation samples
+    """
     # Create datasets
-    train_dataset = InpaintingDataset(root_dir, split='train')
+    train_dataset = InpaintingDataset(root_dir, split='train', debug=debug)
     val_dataset = InpaintingDataset(
         root_dir,
         split='val',
@@ -118,7 +136,8 @@ def get_data_loaders(root_dir: str,
             transforms.Resize((256, 256)),
             transforms.ToTensor(),
             transforms.Normalize(mean=[0.5, 0.5, 0.5], std=[0.5, 0.5, 0.5])
-        ])
+        ]),
+        debug=debug
     )
     
     # Create data loaders

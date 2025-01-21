@@ -53,7 +53,7 @@ def main():
     st.write('Upload an image and select a region to inpaint')
     
     # Load model
-    model = load_model('../checkpoints/latest.pth')
+    model = load_model('checkpoints/latest.pt')
     
     # File uploader
     uploaded_file = st.file_uploader("Choose an image...", type=['png', 'jpg', 'jpeg'])
@@ -61,6 +61,7 @@ def main():
     if uploaded_file is not None:
         # Display original image
         image = Image.open(uploaded_file).convert('RGB')
+        image = image.resize((256, 256))  # Resize to match model input
         st.image(image, caption='Original Image', use_column_width=True)
         
         # Mask options
@@ -94,14 +95,15 @@ def main():
                        angle, 0, 360, 1, -1)
         
         # Display masked image
-        masked_image = np.array(image) * (1 - mask)
-        st.image(masked_image, caption='Masked Image', use_column_width=True)
+        image_array = np.array(image)
+        mask_3channel = np.repeat(mask, 3, axis=2)  # Repeat mask for RGB channels
+        masked_image = image_array * (1 - mask_3channel)
+        st.image(masked_image.astype(np.uint8), caption='Masked Image', use_column_width=True)
         
         if st.button('Inpaint'):
             with st.spinner('Inpainting...'):
-                # Process image
-                result = process_image(image, mask, model)
-                st.image(result, caption='Inpainted Result', use_column_width=True)
+                inpainted = process_image(image, mask, model)
+                st.image(inpainted, caption='Inpainted Image', use_column_width=True)
 
 if __name__ == '__main__':
     main()

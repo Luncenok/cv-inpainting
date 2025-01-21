@@ -6,11 +6,12 @@ import torch
 class TrainingConfig:
     # Device
     device = "mps" if torch.backends.mps.is_available() else "cpu"
+    seed = 42
     
     # Data
     data_dir = 'data/celeba'
     image_size = 256
-    batch_size = 8
+    batch_size = 20
     num_workers = 4
     
     # Model
@@ -32,7 +33,7 @@ class TrainingConfig:
     
     # Checkpoints
     checkpoint_dir = 'checkpoints'
-    save_freq = 10
+    save_freq = 1
     
     # Validation
     val_freq = 5

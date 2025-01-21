@@ -30,10 +30,15 @@ def calculate_ssim(img1, img2):
     img1 = (img1 + 1) / 2
     img2 = (img2 + 1) / 2
     
+    # Move channels to last dimension for skimage
+    if img1.shape[0] == 3:  # If channels first
+        img1 = np.transpose(img1, (1, 2, 0))
+        img2 = np.transpose(img2, (1, 2, 0))
+    
     return structural_similarity(
         img1, img2,
         data_range=1,
-        multichannel=True
+        channel_axis=2  # Specify which axis contains the channels
     )
 
 def calculate_fid(path1, path2):

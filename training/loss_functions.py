@@ -21,7 +21,7 @@ class GANLoss(nn.Module):
         """Create label tensors with the same size as the input."""
         target_tensor = self.real_label if target_is_real else self.fake_label
         target_tensor = target_tensor.expand(prediction.shape[0], 1)
-        return target_tensor.contiguous()
+        return target_tensor.to(prediction.device).contiguous()
     
     def forward(self, prediction, target_is_real):
         """Calculate GAN loss.
