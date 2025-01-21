@@ -1,8 +1,12 @@
 """
 Training configuration and hyperparameter settings.
 """
+import torch
 
 class TrainingConfig:
+    # Device
+    device = "mps" if torch.backends.mps.is_available() else "cpu"
+    
     # Data
     data_dir = 'data/celeba'
     image_size = 256
@@ -44,4 +48,4 @@ class TrainingConfig:
     def to_dict(self):
         """Convert config to dictionary."""
         return {k: v for k, v in self.__dict__.items() 
-                if not k.startswith('__') and not callable(v)}
+                if not k.startswith('_') and not callable(v)}

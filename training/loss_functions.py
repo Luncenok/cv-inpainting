@@ -8,8 +8,8 @@ import torchvision.models as models
 class GANLoss(nn.Module):
     def __init__(self, gan_mode='vanilla', target_real_label=1.0, target_fake_label=0.0):
         super().__init__()
-        self.real_label = torch.tensor(target_real_label)
-        self.fake_label = torch.tensor(target_fake_label)
+        self.register_buffer('real_label', torch.tensor(target_real_label))
+        self.register_buffer('fake_label', torch.tensor(target_fake_label))
         self.gan_mode = gan_mode
         if gan_mode == 'vanilla':
             self.loss = nn.BCEWithLogitsLoss()
@@ -24,7 +24,7 @@ class GANLoss(nn.Module):
 class PerceptualLoss(nn.Module):
     def __init__(self):
         super().__init__()
-        vgg = models.vgg16(pretrained=True)
+        vgg = models.vgg16(weights=models.VGG16_Weights.IMAGENET1K_V1)
         self.feature_extractor = nn.Sequential(*list(vgg.features)[:31]).eval()
         for param in self.feature_extractor.parameters():
             param.requires_grad = False
