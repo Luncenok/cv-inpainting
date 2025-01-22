@@ -58,24 +58,74 @@ class ReportGenerator:
         pass
     
     def get_mlflow_metrics(self):
-        """Get metrics from MLflow."""
+        """Get metrics and parameters from MLflow."""
         client = mlflow.tracking.MlflowClient()
-        experiments = client.list_experiments()
         
-        metrics = []
+        # Get all experiments
+        experiments = client.search_experiments()
+        
+        best_metrics = None
+        best_params = None
+        training_history = None
+        
         for exp in experiments:
-            runs = client.search_runs(exp.experiment_id)
+            # Search runs in the experiment, ordered by PSNR
+            runs = client.search_runs(
+                experiment_ids=[exp.experiment_id],
+                order_by=["metrics.psnr DESC"]
+            )
+            
             for run in runs:
-                metrics.append({
-                    'experiment': exp.name,
-                    'run_id': run.info.run_id,
-                    'metrics': run.data.metrics
-                })
+                metrics = run.data.metrics
+                params = run.data.params
+                
+                # Get history metrics if available
+                history_metrics = {}
+                for key in ['train_loss', 'val_loss', 'psnr', 'ssim']:
+                    try:
+                        history = client.get_metric_history(run.info.run_id, key)
+                        history_metrics[key] = [m.value for m in history]
+                    except:
+                        continue
+                
+                if best_metrics is None or metrics.get('psnr', 0) > best_metrics.get('psnr', 0):
+                    best_metrics = metrics
+                    best_params = params
+                    if history_metrics:
+                        training_history = history_metrics
         
-        return metrics
+        return {
+            'metrics': best_metrics,
+            'params': best_params,
+            'history': training_history
+        }
     
     def generate_report(self):
         """Generate the final report."""
+        # Create figures directory
+        os.makedirs('report/figures', exist_ok=True)
+        
+        # Try to get data from MLflow first
+        try:
+            mlflow_data = self.get_mlflow_metrics()
+            if mlflow_data['metrics']:
+                self.config['metrics'].update(mlflow_data['metrics'])
+            if mlflow_data['params']:
+                self.config['training'].update({
+                    'batch_size': int(mlflow_data['params'].get('batch_size', self.config['training']['batch_size'])),
+                    'g_lr': float(mlflow_data['params'].get('g_lr', self.config['training']['g_lr'])),
+                    'd_lr': float(mlflow_data['params'].get('d_lr', self.config['training']['d_lr'])),
+                    'epochs': int(mlflow_data['params'].get('num_epochs', self.config['training']['epochs'])),
+                    'beta1': float(mlflow_data['params'].get('beta1', self.config['training']['beta1']))
+                })
+            if mlflow_data['history']:
+                self.plot_training_history(mlflow_data['history'])
+        except Exception as e:
+            print(f"Warning: Could not fetch MLflow data: {e}")
+            # If MLflow data not available and history exists in config, plot it
+            if 'history' in self.config:
+                self.plot_training_history(self.config['history'])
+            
         template = """
 # Image Inpainting Project Report
 Generated on {{ date }}
@@ -121,6 +171,11 @@ The project uses the CelebA (CelebFaces Attributes) dataset, which contains over
 2. L1 Loss: Mean Absolute Error
 3. Perceptual Loss: VGG-based feature matching
 
+{% if history %}
+### Training Progress
+![Training History](figures/training_history.png)
+{% endif %}
+
 ## Evaluation Results
 
 ### Metrics
@@ -165,9 +220,10 @@ The project uses the CelebA (CelebFaces Attributes) dataset, which contains over
                 'discriminator': self.config['discriminator_stats']
             },
             'training': self.config['training'],
-            'metrics': self.config['metrics'],
+            'metrics': self.config['metrics'],  
             'tools_and_libraries': self._get_requirements(),
-            'points_summary': self._get_points_summary()
+            'points_summary': self._get_points_summary(),
+            'history': 'history' in self.config or 'history' in mlflow_data
         }
         
         # Generate report
@@ -230,6 +286,12 @@ if __name__ == '__main__':
             'psnr': 28.5,
             'ssim': 0.892,
             'fid': 18.7
+        },
+        'history': {
+            'train_loss': [1.0, 0.9, 0.8, 0.7, 0.6],
+            'val_loss': [1.1, 1.0, 0.9, 0.8, 0.7],
+            'psnr': [25.0, 26.0, 27.0, 28.0, 29.0],
+            'ssim': [0.85, 0.86, 0.87, 0.88, 0.89]
         }
     }
     

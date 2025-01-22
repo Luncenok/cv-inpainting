@@ -188,12 +188,22 @@ This document provides a detailed overview of the implementation and guidance fo
 
 3. **Run Training**:
    ```bash
-   python training/train.py
+   python training/train.py --debug
    ```
 
-4. **Start Development Server**:
+4. **Run Evaluation**:
+   ```bash
+   python evaluation/evaluate.py --debug
+   ```
+
+5. **Start Development Server**:
    ```bash
    streamlit run streamlit_app/app.py
+   ```
+
+6. **Generate Report**:
+   ```bash
+   python report/report_generator.py
    ```
 
 ## Development Guidelines

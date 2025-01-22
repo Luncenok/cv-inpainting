@@ -3,6 +3,14 @@ data/celeba/**
 mlruns/
 runs/
 checkpoints/
+evaluation_results/
+report/figures/
+
+# Include report later
+report/report.md
+
+
+
 
 # Created by https://www.toptal.com/developers/gitignore/api/macos,windows,python,jupyternotebooks,visualstudiocode
 # Edit at https://www.toptal.com/developers/gitignore?templates=macos,windows,python,jupyternotebooks,visualstudiocode

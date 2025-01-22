@@ -27,7 +27,8 @@ def evaluate(config):
         config['data_dir'],
         batch_size=config['batch_size'],
         num_workers=config['num_workers'],
-        debug=config['debug']
+        debug=config['debug'],
+        debug_images_count=config['debug_images_count']
     )
     
     # Initialize metric tracker
@@ -53,7 +54,6 @@ def evaluate(config):
             metric_tracker.update(real_images, fake_images)
             
             # Save images
-            # for j in range(real_images.size(0)):
             save_image(
                 real_images[0],
                 os.path.join(real_dir, f'real_{i}.png'),
@@ -100,6 +100,8 @@ def plot_metrics(metrics, save_dir):
 if __name__ == '__main__':
     parser = argparse.ArgumentParser(description='Evaluate the inpainting model')
     parser.add_argument('--debug', action='store_true', help='Run in debug mode with limited dataset')
+    parser.add_argument('--debug_images_count', type=int, default=100, help='Number of images to use in debug mode')
+    
     args = parser.parse_args()
     
     config = {
@@ -109,7 +111,8 @@ if __name__ == '__main__':
         'num_workers': 4,
         'output_dir': 'evaluation_results',
         'device': 'mps' if torch.backends.mps.is_available() else 'cpu',
-        'debug': args.debug
+        'debug': args.debug,
+        'debug_images_count': args.debug_images_count
     }
     
     metrics = evaluate(config)

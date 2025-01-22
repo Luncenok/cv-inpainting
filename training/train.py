@@ -76,34 +76,26 @@ def train(config):
     os.makedirs('runs', exist_ok=True)
     
     # Set up MLflow
-    mlflow.set_tracking_uri('file:mlruns')
-    mlflow.set_experiment('image_inpainting')
+    mlflow.set_tracking_uri(config.mlflow_tracking_uri)
+    mlflow.set_experiment(config.mlflow_experiment_name)
     
-    # Adjust epochs in debug mode
-    if config.debug:
-        print("Debug mode: Running for 1 epoch")
-        config.num_epochs = 1
-    
-    # Get data loaders
+    # Create data loaders
     train_loader, val_loader = get_data_loaders(
         config.data_dir,
         batch_size=config.batch_size,
         num_workers=config.num_workers,
-        debug=config.debug
+        debug=config.debug,
+        debug_images_count=config.debug_images_count
     )
     
     try:
         # Initialize models
-        generator = Generator(in_channels=config.in_channels, out_channels=config.out_channels)
-        discriminator = Discriminator(in_channels=config.out_channels)
-        
-        # Move models to device
-        generator = generator.to(device)
-        discriminator = discriminator.to(device)
+        generator = Generator(config.in_channels, config.out_channels).to(config.device)
+        discriminator = Discriminator(config.in_channels).to(config.device)
         
         # Initialize optimizers
-        g_optimizer = optim.Adam(generator.parameters(), lr=config.g_lr, betas=(config.beta1, 0.999))
-        d_optimizer = optim.Adam(discriminator.parameters(), lr=config.d_lr, betas=(config.beta1, 0.999))
+        g_optimizer = optim.Adam(generator.parameters(), lr=config.g_lr, betas=(config.beta1, config.beta2))
+        d_optimizer = optim.Adam(discriminator.parameters(), lr=config.d_lr, betas=(config.beta1, config.beta2))
         
         # Get loss functions and move them to device
         loss_functions = get_loss_functions()
@@ -115,18 +107,27 @@ def train(config):
         writer = SummaryWriter(log_dir=f'runs/inpainting_{datetime.now().strftime("%Y%m%d_%H%M%S")}')
         
         # Start MLflow run
-        with mlflow.start_run(run_name=config.mlflow_run_name or f"run_{datetime.now().strftime('%Y%m%d_%H%M%S')}"):
+        with mlflow.start_run(run_name=config.mlflow_run_name):
             # Log parameters
-            mlflow.log_params(config.to_dict())
+            mlflow.log_params({
+                'batch_size': config.batch_size,
+                'g_lr': config.g_lr,
+                'd_lr': config.d_lr,
+                'num_epochs': config.get_debug_epochs(),
+                'debug': config.debug,
+                'debug_images_count': config.debug_images_count if config.debug else None,
+                'lambda_l1': config.lambda_l1,
+                'lambda_perceptual': config.lambda_perceptual
+            })
             
-            for epoch in range(config.num_epochs):
+            for epoch in range(config.get_debug_epochs()):
                 generator.train()
                 discriminator.train()
                 
                 train_g_loss = 0
                 train_d_loss = 0
                 
-                progress_bar = tqdm(train_loader, desc=f'Epoch {epoch+1}/{config.num_epochs}')
+                progress_bar = tqdm(train_loader, desc=f'Epoch {epoch+1}/{config.get_debug_epochs()}')
                 for batch in progress_bar:
                     real_images = batch['image'].to(device)
                     masked_images = batch['masked_image'].to(device)
@@ -139,9 +140,13 @@ def train(config):
                     fake_images = generator(masked_images, masks)
                     fake_images = validate_tensor_shapes("Generator output", fake_images, real_images.shape)
                     
+                    # Prepare inputs for discriminator (concatenate with mask)
+                    real_with_mask = torch.cat([real_images, masks], dim=1)
+                    fake_with_mask = torch.cat([fake_images.detach(), masks], dim=1)
+                    
                     # Get predictions
-                    real_pred = discriminator(real_images)
-                    fake_pred = discriminator(fake_images.detach())
+                    real_pred = discriminator(real_with_mask)
+                    fake_pred = discriminator(fake_with_mask)
                     
                     # Calculate discriminator loss
                     d_real_loss = loss_functions['adversarial'](real_pred, True)
@@ -152,12 +157,14 @@ def train(config):
                     d_loss.backward()
                     d_optimizer.step()
                     
+                    train_d_loss += d_loss.item()
+                    
                     # Train generator
                     g_optimizer.zero_grad()
                     
-                    # Get new predictions for generator (since discriminator weights have changed)
-                    fake_pred = discriminator(fake_images)
-                    fake_pred = validate_tensor_shapes("Generator fake predictions", fake_pred, (real_images.size(0), 1))
+                    # Get new predictions for generator (need new forward pass)
+                    fake_with_mask = torch.cat([fake_images, masks], dim=1)
+                    fake_pred = discriminator(fake_with_mask)
                     
                     # Calculate generator losses
                     g_adv_loss = loss_functions['adversarial'](fake_pred, True)
@@ -172,7 +179,6 @@ def train(config):
                     
                     # Update progress bar
                     train_g_loss += g_loss.item()
-                    train_d_loss += d_loss.item()
                     progress_bar.set_postfix({
                         'g_loss': g_loss.item(),
                         'd_loss': d_loss.item()

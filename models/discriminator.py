@@ -6,6 +6,12 @@ import torch.nn as nn
 
 class Discriminator(nn.Module):
     def __init__(self, in_channels=3):
+        """Initialize discriminator.
+        
+        Args:
+            in_channels (int): Number of input channels. Should be 4 for RGB + mask.
+                             Default is 3 for backward compatibility.
+        """
         super().__init__()
         self.model = nn.Sequential(
             # Input: [batch_size, in_channels, 256, 256]
@@ -31,7 +37,8 @@ class Discriminator(nn.Module):
         """Forward pass.
         
         Args:
-            x (torch.Tensor): Input image tensor [batch_size, channels, height, width]
+            x (torch.Tensor): Input tensor [batch_size, channels, height, width].
+                            Expects 4 channels: RGB + mask
             
         Returns:
             torch.Tensor: Discriminator output [batch_size, 1]
