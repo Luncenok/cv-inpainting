@@ -6,6 +6,9 @@ checkpoints/
 evaluation_results/
 report/figures/
 
+# Zipped datasets
+data/*.zip
+
 # Include report later
 report/report.md
 
